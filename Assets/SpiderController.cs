@@ -16,7 +16,13 @@ public class SpiderController : MonoBehaviour
     public GameObject turretShoot_left;
 
     public float _speed = 1f;
+    public float jumpForce = 10f;
+
     public float _speedRotation = 10f;
+
+    public float shootCooldown;
+    float lastShootTime;
+    bool canShoot;
 
     private Rigidbody _rigidbody;
     Vector3 m_Input;
@@ -54,7 +60,9 @@ public class SpiderController : MonoBehaviour
 
         bool leftRotation = Input.GetKey(KeyCode.Q);
         bool rightRotation = Input.GetKey(KeyCode.E);
-        bool shootInput = Input.GetKey(KeyCode.Space);
+        bool shootInput = Input.GetMouseButton(0);
+        bool jumpInput = Input.GetKey(KeyCode.Space);
+
 
         if (leftRotation && !rightRotation) 
         {
@@ -74,11 +82,27 @@ public class SpiderController : MonoBehaviour
         turretAimConstraint.transform.position = mousePos;
         var dir = mousePos - turretShoot_Right.transform.position;
 
-        if (shootInput)
+        if(Time.time > lastShootTime + shootCooldown)
         {
+            canShoot = true;
+        }
+        else if(Time.time < lastShootTime + shootCooldown)
+        {
+            canShoot = false;
+        }
+
+        if (shootInput && canShoot)
+        {
+            lastShootTime = Time.time;
             Instantiate(bulletPrefab, turretShoot_Right.transform.position, Quaternion.identity).GetComponent<BulletController>().dir = dir;
             Instantiate(bulletPrefab, turretShoot_left.transform.position, Quaternion.identity).GetComponent<BulletController>().dir = dir; ;
         }
 
+        if (jumpInput)
+        {
+            _rigidbody.MovePosition(transform.position + jumpForce * Time.fixedDeltaTime * orientation.up);
+        }
+
     }
+
 }
