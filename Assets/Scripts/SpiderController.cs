@@ -2,8 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
-[RequireComponent(typeof(Rigidbody))]
 public class SpiderController : MonoBehaviour
 {
     public Transform orientation;
@@ -14,6 +14,7 @@ public class SpiderController : MonoBehaviour
 
     public GameObject turretShoot_Right;
     public GameObject turretShoot_left;
+    public float gravity;
 
     public float _speed = 1f;
     public float jumpForce = 10f;
@@ -24,69 +25,84 @@ public class SpiderController : MonoBehaviour
     float lastShootTime;
     bool canShoot;
 
-    private Rigidbody _rigidbody;
-    Vector3 m_Input;
-    Vector3 m_InputRotation;
+    private CharacterController characterController;
+    Vector3 inputVector;
+    Vector3 movementDirection;
     int rotationDirection;
 
-    // Start is called before the first frame update
+
+    Vector3 targetVelocity;
+
     void Start()
     {
-        _rigidbody = GetComponent<Rigidbody>();
+        characterController = GetComponent<CharacterController>();
     }
 
-    // Update is called once per frame
     void FixedUpdate()
     {
-        Vector3 direction = orientation.forward;
+        targetVelocity = Vector3.Lerp(targetVelocity, movementDirection * _speed * Time.fixedDeltaTime, 0.1f);
 
-        if (Input.GetAxisRaw("Vertical") != 0)
+        if (!characterController.isGrounded)
         {
-            _rigidbody.MovePosition(transform.position + _speed * Time.fixedDeltaTime * orientation.forward * Mathf.Sign(Input.GetAxisRaw("Vertical")));
+            targetVelocity.y -= gravity;
         }
 
-        if (Input.GetAxisRaw("Horizontal") != 0)
-        {
-            _rigidbody.MovePosition(transform.position + _speed * Time.fixedDeltaTime * orientation.right * Mathf.Sign(Input.GetAxisRaw("Horizontal")));
-        }
+        characterController.Move(targetVelocity);
 
         transform.Rotate(new Vector3(0, _speedRotation * Time.fixedDeltaTime * rotationDirection, 0));
     }
 
     private void Update()
     {
-        m_Input = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
-        m_InputRotation = new Vector3();
+        inputVector = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical")).normalized;
+        movementDirection = orientation.forward * inputVector.z + orientation.right * inputVector.x;
 
+        RotationInput();
+        Shoot();
+        Jump();
+    }
+
+    void RotationInput()
+    {
         bool leftRotation = Input.GetKey(KeyCode.Q);
         bool rightRotation = Input.GetKey(KeyCode.E);
-        bool shootInput = Input.GetMouseButton(0);
-        bool jumpInput = Input.GetKey(KeyCode.Space);
 
-
-        if (leftRotation && !rightRotation) 
+        if (leftRotation && !rightRotation)
         {
             rotationDirection = -1;
         }
-        else if(rightRotation && !leftRotation) 
-        { 
+        else if (rightRotation && !leftRotation)
+        {
             rotationDirection = 1;
         }
         else
         {
             rotationDirection = 0;
         }
+    }
+    void Jump()
+    {
+        bool jumpInput = Input.GetKeyDown(KeyCode.Space);
 
+        if (jumpInput && characterController.isGrounded)
+        {
+            targetVelocity.y = jumpForce;
+        }
+    }
+
+    void Shoot()
+    {
+        bool shootInput = Input.GetMouseButton(0);
 
         Vector3 mousePos = Camera.main.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, 10));
         turretAimConstraint.transform.position = mousePos;
         var dir = mousePos - turretShoot_Right.transform.position;
 
-        if(Time.time > lastShootTime + shootCooldown)
+        if (Time.time > lastShootTime + shootCooldown)
         {
             canShoot = true;
         }
-        else if(Time.time < lastShootTime + shootCooldown)
+        else if (Time.time < lastShootTime + shootCooldown)
         {
             canShoot = false;
         }
@@ -97,12 +113,6 @@ public class SpiderController : MonoBehaviour
             Instantiate(bulletPrefab, turretShoot_Right.transform.position, Quaternion.identity).GetComponent<BulletController>().dir = dir;
             Instantiate(bulletPrefab, turretShoot_left.transform.position, Quaternion.identity).GetComponent<BulletController>().dir = dir; ;
         }
-
-        if (jumpInput)
-        {
-            _rigidbody.MovePosition(transform.position + jumpForce * Time.fixedDeltaTime * orientation.up);
-        }
-
     }
 
 }
